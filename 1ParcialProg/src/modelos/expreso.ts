@@ -1,6 +1,7 @@
 import { Producto } from './producto';
 
 export class Expreso extends Producto {
+    public tipo: string = 'expreso';
     constructor(
         id: string,
         nombre: string,

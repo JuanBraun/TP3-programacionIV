@@ -1,6 +1,7 @@
 import { Producto } from './producto';
 
 export class Filtrado extends Producto {
+    public tipo: string = 'filtrado';
     constructor(
         id: string,
         nombre: string,

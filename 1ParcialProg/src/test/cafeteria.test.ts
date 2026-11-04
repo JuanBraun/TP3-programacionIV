@@ -28,7 +28,7 @@ describe('Cafetería Origen - Pruebas Unitarias y de Negocio', () => {
     it('Debe registrar un pedido y calcular correctamente el total y reportes', () => {
     // Creamos un pedido con 2 unidades del producto ID '1' (Expreso Colombia: $7360 c/u)
         const pedido = CafeService.crearPedido([
-        { productoId: '1', cantidad: 2 }
+        { productId: '1', cantidad: 2 }
     ]);
 
     const totalPedido = CafeService.calcularTotalPedido(pedido);
