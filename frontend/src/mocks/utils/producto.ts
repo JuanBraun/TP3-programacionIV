@@ -2,10 +2,10 @@ import { z } from 'zod';
 
 // Definimos el contrato de validación estricto
 export const productoSchema = z.object({
-    id: z.string(),
+    id: z.number(), // 
     nombre: z.string(),
     precio: z.number(),
-    categoria: z.string()
+    tipo: z.string()
 });
 
 // Extraemos el tipo de TypeScript automáticamente desde el esquema

@@ -29,8 +29,7 @@ describe('Componente Menu (Llamada a la API)', () => {
         render(<Menu />);
 
         // findByText ya incluye el waitFor internamente, es ideal para buscar datos asíncronos
-        // Usamos una expresión regular (/Café/i) para que encuentre la palabra sin importar mayúsculas o minúsculas
-        const productoNombre = await screen.findByText(/Café/i);
+        const productoNombre = await screen.findByText(/Expreso Pocillo/i);
         
         expect(productoNombre).toBeInTheDocument();
     });

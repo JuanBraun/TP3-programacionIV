@@ -4,10 +4,10 @@ import { productoSchema } from './producto';
 describe('Contrato Zod para Productos', () => {
     it('Debe aceptar un producto que tenga todos los campos correctos', () => {
         const productoValido = {
-            id: 'prod-123',
+            id: 123,
             nombre: 'Café de Especialidad',
             precio: 7360,
-            categoria: 'bebida'
+            tipo: 'bebida'
         };
         
         // safeParse evalúa los datos sin frenar la ejecución si hay error

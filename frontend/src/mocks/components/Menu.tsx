@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { Producto, productoSchema } from '../utils/producto';
+import { formatearPrecio } from '../utils/precio';
 
 const Menu: React.FC = () => {
     const [cargando, setCargando] = useState<boolean>(true);
@@ -8,28 +9,24 @@ const Menu: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Esta función asíncrona se ejecuta apenas el componente aparece en pantalla
         const buscarProductos = async () => {
             try {
-                // Hacemos el pedido al backend (MSW lo va a interceptar en los tests)
-                const respuesta = await fetch('/productos');
+                const respuesta = await fetch('/api/productos');
                 if (!respuesta.ok) throw new Error('Error al conectar con la API');
 
                 const datosCrudos = await respuesta.json();
-
-                // Usamos Zod para validar que sea un array de productos perfectos
                 const validacion = z.array(productoSchema).safeParse(datosCrudos);
 
                 if (!validacion.success) {
+                    console.error("DETALLE DE ZOD:", validacion.error.issues);
                     throw new Error('La API envió datos corruptos o con formato incorrecto');
                 }
 
-                // Si todo está perfecto, guardamos los productos en el estado
                 setProductos(validacion.data);
             } catch (err) {
+                console.error("ERROR DETALLADO:", err); //
                 setError('Hubo un problema al cargar el menú.');
             } finally {
-                // Pase lo que pase (éxito o error), apagamos el cartel de carga
                 setCargando(false);
             }
         };
@@ -55,8 +52,26 @@ const Menu: React.FC = () => {
 
     return (
         <div className="container mt-4">
-            <p className="text-success">¡Menú cargado con éxito! ({productos.length} productos)</p>
-            {/* En el próximo paso armaremos la grilla visual de los productos */}
+            <h3 className="mb-4 text-center">Menú Disponible</h3>
+            <div className="row">
+                {/* Iteramos sobre el arreglo de productos para dibujar una tarjeta por cada uno */}
+                {productos.map((producto) => (
+                    <div key={producto.id} className="col-12 col-md-6 mb-3">
+                        <div className="card shadow-sm h-100">
+                            <div className="card-body d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 className="card-title mb-1">{producto.nombre}</h5>
+                                    <span className="badge bg-secondary text-capitalize">{producto.tipo}</span>
+                                </div>
+                                {/* Usamos nuestra utilidad pura para mostrar el precio formateado */}
+                                <span className="fw-bold fs-5 text-success">
+                                    {formatearPrecio(producto.precio)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
