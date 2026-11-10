@@ -9,15 +9,15 @@ interface CarritoProps {
 const Carrito: React.FC<CarritoProps> = ({ estado }) => {
     const estaVacio = estado.items.length === 0;
     
-    // Estados nuevos para manejar la red y la respuesta de MSW
     const [cargando, setCargando] = useState(false);
-    // Usamos 'any' temporalmente para la orden, luego podemos tiparlo
     const [orden, setOrden] = useState<any>(null); 
+    const [errorMensaje, setErrorMensaje] = useState<string | null>(null); // Nuevo estado para errores
 
     const confirmarPedido = async () => {
         setCargando(true);
+        setErrorMensaje(null); // Limpiamos errores anteriores al reintentar
+        
         try {
-            // Tu API espera { id, cantidad } según tu handlers.ts
             const itemsApi = estado.items.map(item => ({
                 id: item.productoId,
                 cantidad: item.cantidad
@@ -31,16 +31,19 @@ const Carrito: React.FC<CarritoProps> = ({ estado }) => {
 
             if (respuesta.ok) {
                 const data = await respuesta.json();
-                setOrden(data); // Guardamos la orden confirmada
+                setOrden(data);
+            } else {
+                // Si la API tira 4xx o 5xx, leemos el mensaje de tu handlers.ts
+                const errorData = await respuesta.json();
+                setErrorMensaje(errorData.error || 'Ocurrió un error al procesar el pedido.');
             }
         } catch (error) {
-            console.error("Error de red:", error);
+            setErrorMensaje("No se pudo conectar con el servidor. Revisá tu conexión.");
         } finally {
             setCargando(false);
         }
     };
 
-    // Si tenemos una orden exitosa, la pantalla se transforma en el panel de seguimiento
     if (orden) {
         return (
             <div className="card shadow-sm border-0 bg-light sticky-top" style={{ top: '20px' }}>
@@ -59,11 +62,17 @@ const Carrito: React.FC<CarritoProps> = ({ estado }) => {
         );
     }
 
-    // Si no hay orden confirmada todavía, mostramos el carrito normal
     return (
         <div className="card shadow-sm border-0 bg-light sticky-top" style={{ top: '20px' }}>
             <div className="card-body p-4">
                 <h4 className="card-title mb-4">🛒 Tu Pedido</h4>
+
+                {/* Si hay un error, mostramos el cartel rojo pero NO borramos el carrito */}
+                {errorMensaje && (
+                    <div className="alert alert-danger mb-4 border-0">
+                        <strong>Error:</strong> {errorMensaje}
+                    </div>
+                )}
 
                 {estaVacio ? (
                     <div className="alert alert-warning text-center text-muted border-0 bg-white">
