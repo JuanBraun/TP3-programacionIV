@@ -1,12 +1,46 @@
 // @vitest-environment jsdom
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import Carrito from './Carrito';
 
 describe('Componente Carrito (Interfaz visual)', () => {
-it('Debe enviar el pedido a la API y mostrar el número de seguimiento al tener éxito', async () => {
+    it('Debe mostrar un mensaje de error y mantener los productos si la API rechaza el pedido', async () => {
+        const user = userEvent.setup();
+        
+        // Falsificamos la función fetch solo para este test simulando un error 400
+        const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+            new Response(JSON.stringify({ error: 'Sin stock de café' }), { 
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        );
+
+        const estadoLleno = { 
+            items: [{ productoId: 1, nombre: 'Expreso Pocillo', precio: 6200, cantidad: 1 }], 
+            total: 6200 
+        };
+        
+        render(<Carrito estado={estadoLleno} />);
+        
+        const botonConfirmar = screen.getByRole('button', { name: /Confirmar Pedido/i });
+        await user.click(botonConfirmar);
+        
+        // 1. Exigimos que aparezca el texto del error
+        expect(await screen.findByText(/Sin stock de café/i)).toBeInTheDocument();
+        
+        // 2. Exigimos que el producto siga en la pantalla (no se vació el carrito)
+        expect(screen.getByText('Expreso Pocillo')).toBeInTheDocument();
+        
+        // 3. Exigimos que el botón vuelva a estar clickeable para reintentar
+        expect(botonConfirmar).toBeEnabled();
+
+        // Limpiamos el espía para no afectar otros tests
+        mockFetch.mockRestore();
+    });
+
+    it('Debe enviar el pedido a la API y mostrar el número de seguimiento al tener éxito', async () => {
         const user = userEvent.setup();
         
         // 1. Escenario: El carrito tiene un producto listo para comprar
