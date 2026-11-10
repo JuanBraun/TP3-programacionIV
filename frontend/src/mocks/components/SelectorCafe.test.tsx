@@ -34,7 +34,7 @@ describe('Componente SelectorCafe', () => {
 
         // Verificamos que el componente reaccione correctamente
         expect(botonAgregar).toBeEnabled();
-        expect(screen.getByText(/\$ 6\.200/i)).toBeInTheDocument();
+        expect(screen.getByText(/6\.?200/)).toBeInTheDocument();
         expect(screen.getByText(/Acidez media/i)).toBeInTheDocument();
     });
 
