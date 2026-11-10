@@ -2,6 +2,29 @@ import { describe, it, expect } from 'vitest';
 import { carritoReducer, EstadoCarrito, AccionCarrito } from './carritoReducer';
 
 describe('Lógica del carritoReducer', () => {
+    it('Debe sumar la cantidad si el producto ya existe en el carrito', () => {
+        // 1. Escenario: El carrito ya tiene un café adentro
+        const estadoInicial: EstadoCarrito = { 
+            items: [
+                { productoId: 1, nombre: 'Expreso Pocillo', precio: 6200, cantidad: 1 }
+            ], 
+            total: 6200 
+        };
+        
+        // 2. Acción: El cliente vuelve a apretar "Agregar" en el mismo producto
+        const accion: AccionCarrito = {
+            type: 'AGREGAR_ITEM',
+            payload: { productoId: 1, nombre: 'Expreso Pocillo', precio: 6200, cantidad: 1 }
+        };
+
+        const nuevoEstado = carritoReducer(estadoInicial, accion);
+
+        // 4. Validación: Sigue habiendo 1 renglón, pero la cantidad es 2 y el total se duplicó
+        expect(nuevoEstado.items).toHaveLength(1);
+        expect(nuevoEstado.items[0].cantidad).toBe(2);
+        expect(nuevoEstado.total).toBe(12400);
+    });
+    
     it('Debe agregar un producto nuevo al carrito vacío y calcular el total', () => {
         // 1. Escenario: El carrito arranca vacío
         const estadoInicial: EstadoCarrito = { 
