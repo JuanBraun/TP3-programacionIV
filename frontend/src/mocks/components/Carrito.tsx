@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { EstadoCarrito } from '../reducers/carritoReducer';
 import { formatearPrecio } from '../utils/precio';
 
@@ -7,13 +7,100 @@ interface CarritoProps {
 }
 
 const Carrito: React.FC<CarritoProps> = ({ estado }) => {
-    // Variable auxiliar para saber si hay que bloquear cosas
     const estaVacio = estado.items.length === 0;
+    
+    const [cargando, setCargando] = useState(false);
+    const [orden, setOrden] = useState<any>(null); 
+    const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
+
+    // ==========================================
+    // NUEVA LÓGICA DE POLLING (SEGUIMIENTO)
+    // ==========================================
+    useEffect(() => {
+        // Si todavía no hay una orden creada, no prendemos el cronómetro
+        if (!orden?.id) return;
+
+        // Configuramos el polling para que consulte la API cada 5 segundos
+        const intervalo = setInterval(async () => {
+            try {
+                const respuesta = await fetch(`/api/pedidos/${orden.id}`);
+                if (respuesta.ok) {
+                    const data = await respuesta.json();
+                    // Actualizamos el estado con los nuevos datos que llegaron de la cocina
+                    setOrden((ordenAnterior: any) => ({ ...ordenAnterior, ...data }));
+                }
+            } catch (error) {
+                console.error("Error al consultar el seguimiento:", error);
+            }
+        }, 5000); // 5000 milisegundos = 5 segundos
+
+        // Función de limpieza: apagamos el cronómetro si el componente se destruye
+        return () => clearInterval(intervalo);
+    }, [orden?.id]); // Solo se vuelve a ejecutar si cambia el ID de la orden
+
+    const confirmarPedido = async () => {
+        setCargando(true);
+        setErrorMensaje(null);
+        
+        try {
+            const itemsApi = estado.items.map(item => ({
+                id: item.productoId,
+                cantidad: item.cantidad
+            }));
+
+            const respuesta = await fetch('/api/pedidos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: itemsApi })
+            });
+
+            if (respuesta.ok) {
+                const data = await respuesta.json();
+                setOrden(data);
+            } else {
+                const errorData = await respuesta.json();
+                setErrorMensaje(errorData.error || 'Ocurrió un error al procesar el pedido.');
+            }
+        } catch (error) {
+            setErrorMensaje("No se pudo conectar con el servidor. Revisá tu conexión.");
+        } finally {
+            setCargando(false);
+        }
+    };
+
+    if (orden) {
+        // Agregamos un cambio de color para que sea más visual: Verde si está entregado, amarillo si está pendiente
+        const estadoColor = orden.estado === 'entregado' ? 'bg-success text-white' : 'bg-warning text-dark';
+
+        return (
+            <div className="card shadow-sm border-0 bg-light sticky-top" style={{ top: '20px' }}>
+                <div className="card-body p-4 text-center">
+                    <div className="text-success mb-3" style={{ fontSize: '3rem' }}>✓</div>
+                    <h4 className="card-title mb-2">¡Pedido Confirmado!</h4>
+                    <h2 className="display-6 fw-bold mb-3">Pedido #{orden.id}</h2>
+                    
+                    <span className={`badge ${estadoColor} fs-6 mb-4 text-capitalize`}>
+                        Estado: {orden.estado}
+                    </span>
+                    
+                    <p className="text-muted">
+                        Tu pedido fue enviado a la cocina. Te avisaremos cuando esté listo.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="card shadow-sm border-0 bg-light sticky-top" style={{ top: '20px' }}>
             <div className="card-body p-4">
                 <h4 className="card-title mb-4">🛒 Tu Pedido</h4>
+
+                {errorMensaje && (
+                    <div className="alert alert-danger mb-4 border-0">
+                        <strong>Error:</strong> {errorMensaje}
+                    </div>
+                )}
 
                 {estaVacio ? (
                     <div className="alert alert-warning text-center text-muted border-0 bg-white">
@@ -42,9 +129,10 @@ const Carrito: React.FC<CarritoProps> = ({ estado }) => {
 
                 <button 
                     className="btn btn-primary w-100 py-3 fw-bold fs-5 shadow-sm" 
-                    disabled={estaVacio}
+                    disabled={estaVacio || cargando}
+                    onClick={confirmarPedido}
                 >
-                    Confirmar Pedido
+                    {cargando ? 'Enviando...' : 'Confirmar Pedido'}
                 </button>
             </div>
         </div>
