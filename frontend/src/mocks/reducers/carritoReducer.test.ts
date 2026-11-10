@@ -2,6 +2,49 @@ import { describe, it, expect } from 'vitest';
 import { carritoReducer, EstadoCarrito, AccionCarrito } from './carritoReducer';
 
 describe('Lógica del carritoReducer', () => {
+it('Debe restar 1 a la cantidad de un producto usando RESTAR_ITEM', () => {
+        // Arrancamos con 2 cafés
+        const estadoInicial: EstadoCarrito = { 
+            items: [{ productoId: 1, nombre: 'Expreso', precio: 6000, cantidad: 2 }], 
+            total: 12000 
+        };
+        const accion: AccionCarrito = { type: 'RESTAR_ITEM', payload: { productoId: 1 } };
+        
+        const nuevoEstado = carritoReducer(estadoInicial, accion);
+
+        expect(nuevoEstado.items[0].cantidad).toBe(1);
+        expect(nuevoEstado.total).toBe(6000);
+    });
+
+    it('Debe eliminar el producto si se resta cuando la cantidad es 1', () => {
+        const estadoInicial: EstadoCarrito = { 
+            items: [{ productoId: 1, nombre: 'Expreso', precio: 6000, cantidad: 1 }], 
+            total: 6000 
+        };
+        const accion: AccionCarrito = { type: 'RESTAR_ITEM', payload: { productoId: 1 } };
+        
+        const nuevoEstado = carritoReducer(estadoInicial, accion);
+
+        // Al restar el último, el carrito debe quedar vacío
+        expect(nuevoEstado.items).toHaveLength(0);
+        expect(nuevoEstado.total).toBe(0);
+    });
+
+    it('Debe eliminar un producto por completo usando ELIMINAR_ITEM sin importar su cantidad', () => {
+        // Arrancamos con 5 cafés
+        const estadoInicial: EstadoCarrito = { 
+            items: [{ productoId: 1, nombre: 'Expreso', precio: 6000, cantidad: 5 }], 
+            total: 30000 
+        };
+        // La acción ELIMINAR_ITEM actúa como el botón "Basurero"
+        const accion: AccionCarrito = { type: 'ELIMINAR_ITEM', payload: { productoId: 1 } };
+        
+        const nuevoEstado = carritoReducer(estadoInicial, accion);
+
+        expect(nuevoEstado.items).toHaveLength(0);
+        expect(nuevoEstado.total).toBe(0);
+    });
+
     it('Debe sumar la cantidad si el producto ya existe en el carrito', () => {
         // 1. Escenario: El carrito ya tiene un café adentro
         const estadoInicial: EstadoCarrito = { 
@@ -24,7 +67,7 @@ describe('Lógica del carritoReducer', () => {
         expect(nuevoEstado.items[0].cantidad).toBe(2);
         expect(nuevoEstado.total).toBe(12400);
     });
-    
+
     it('Debe agregar un producto nuevo al carrito vacío y calcular el total', () => {
         // 1. Escenario: El carrito arranca vacío
         const estadoInicial: EstadoCarrito = { 
