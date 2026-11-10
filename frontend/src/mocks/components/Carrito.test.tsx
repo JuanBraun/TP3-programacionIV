@@ -6,6 +6,41 @@ import '@testing-library/jest-dom';
 import Carrito from './Carrito';
 
 describe('Componente Carrito (Interfaz visual)', () => {
+    it('Debe consultar el estado periódicamente (polling) y actualizar la pantalla sola', async () => {
+        // Tomamos el control del tiempo en el entorno de pruebas
+        vi.useFakeTimers();
+        const user = userEvent.setup({ delay: null });
+        
+        // Falsificamos fetch para que devuelva 'pendiente' al principio y 'entregado' en el polling
+        const mockFetch = vi.spyOn(global, 'fetch').mockImplementation(async (url, options) => {
+            if (options?.method === 'POST') {
+                return new Response(JSON.stringify({ id: 1, estado: 'pendiente' }), { status: 201 });
+            }
+            return new Response(JSON.stringify({ id: 1, estado: 'entregado' }), { status: 200 });
+        });
+
+        const estadoLleno = { 
+            items: [{ productoId: 1, nombre: 'Expreso Pocillo', precio: 6200, cantidad: 1 }], 
+            total: 6200 
+        };
+        render(<Carrito estado={estadoLleno} />);
+        
+        await user.click(screen.getByRole('button', { name: /Confirmar Pedido/i }));
+        
+        // 1. Verificamos que el estado inicial diga "pendiente"
+        expect(await screen.findByText(/Estado: pendiente/i)).toBeInTheDocument();
+        
+        // 2. Acción: Adelantamos el reloj de Vitest 5 segundos (5000 milisegundos)
+        await vi.advanceTimersByTimeAsync(5000);
+        
+        // 3. Validación: La pantalla debió actualizarse sola a "entregado"
+        expect(await screen.findByText(/Estado: entregado/i)).toBeInTheDocument();
+
+        // Limpiamos los espías y devolvemos el tiempo a la normalidad
+        mockFetch.mockRestore();
+        vi.useRealTimers();
+    });
+    
     it('Debe mostrar un mensaje de error y mantener los productos si la API rechaza el pedido', async () => {
         const user = userEvent.setup();
         
