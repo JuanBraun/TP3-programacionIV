@@ -1,4 +1,3 @@
-// Definimos la estructura de un ítem dentro del carrito
 export interface ItemCarrito {
     productoId: number;
     nombre: string;
@@ -6,26 +5,37 @@ export interface ItemCarrito {
     cantidad: number;
 }
 
-// Definimos cómo es el estado global del carrito
 export interface EstadoCarrito {
     items: ItemCarrito[];
     total: number;
 }
 
-// Definimos las acciones que puede recibir nuestro reducer (por ahora solo agregar)
 export type AccionCarrito = 
     | { type: 'AGREGAR_ITEM'; payload: ItemCarrito };
 
-// El cerebro matemático: recibe el estado actual, una acción, y devuelve el NUEVO estado
 export const carritoReducer = (estado: EstadoCarrito, accion: AccionCarrito): EstadoCarrito => {
     switch (accion.type) {
         case 'AGREGAR_ITEM': {
             const nuevoItem = accion.payload;
             
-            // Copiamos los ítems que ya estaban y agregamos el nuevo al final
-            const nuevosItems = [...estado.items, nuevoItem];
+            // Buscamos si el ID del producto ya existe en nuestra lista
+            const existeItem = estado.items.find(item => item.productoId === nuevoItem.productoId);
             
-            // Recalculamos el total sumando el precio * cantidad de cada ítem en el carrito
+            let nuevosItems;
+
+            if (existeItem) {
+                // Si existe, mapeamos la lista y al que coincide le sumamos la cantidad
+                nuevosItems = estado.items.map(item => 
+                    item.productoId === nuevoItem.productoId 
+                        ? { ...item, cantidad: item.cantidad + nuevoItem.cantidad }
+                        : item
+                );
+            } else {
+                // Si no existe, lo metemos al final como antes
+                nuevosItems = [...estado.items, nuevoItem];
+            }
+            
+            // El cálculo del total se mantiene idéntico, ya que la matemática de la cantidad se resolvió arriba
             const nuevoTotal = nuevosItems.reduce((acumulador, item) => acumulador + (item.precio * item.cantidad), 0);
 
             return {
