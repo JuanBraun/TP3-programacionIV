@@ -1,118 +1,92 @@
 // @vitest-environment jsdom
-import userEvent from '@testing-library/user-event';
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 import Carrito from './Carrito';
 
 describe('Componente Carrito (Interfaz visual)', () => {
-    it('Debe consultar el estado periódicamente (polling) y actualizar la pantalla sola', async () => {
-        // Tomamos el control del tiempo en el entorno de pruebas
-        vi.useFakeTimers();
-        const user = userEvent.setup({ delay: null });
-        
-        // Falsificamos fetch para que devuelva 'pendiente' al principio y 'entregado' en el polling
-        const mockFetch = vi.spyOn(global, 'fetch').mockImplementation(async (url, options) => {
-            if (options?.method === 'POST') {
-                return new Response(JSON.stringify({ id: 1, estado: 'pendiente' }), { status: 201 });
-            }
-            return new Response(JSON.stringify({ id: 1, estado: 'entregado' }), { status: 200 });
-        });
-
-        const estadoLleno = { 
-            items: [{ productoId: 1, nombre: 'Expreso Pocillo', precio: 6200, cantidad: 1 }], 
-            total: 6200 
-        };
-        render(<Carrito estado={estadoLleno} />);
-        
-        await user.click(screen.getByRole('button', { name: /Confirmar Pedido/i }));
-        
-        // 1. Verificamos que el estado inicial diga "pendiente"
-        expect(await screen.findByText(/Estado: pendiente/i)).toBeInTheDocument();
-        
-        // 2. Acción: Adelantamos el reloj de Vitest 5 segundos (5000 milisegundos)
-        await vi.advanceTimersByTimeAsync(5000);
-        
-        // 3. Validación: La pantalla debió actualizarse sola a "entregado"
-        expect(await screen.findByText(/Estado: entregado/i)).toBeInTheDocument();
-
-        // Limpiamos los espías y devolvemos el tiempo a la normalidad
-        mockFetch.mockRestore();
-        vi.useRealTimers();
-    });
     
-    it('Debe mostrar un mensaje de error y mantener los productos si la API rechaza el pedido', async () => {
-        const user = userEvent.setup();
-        
-        // Falsificamos la función fetch solo para este test simulando un error 400
-        const mockFetch = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
-            new Response(JSON.stringify({ error: 'Sin stock de café' }), { 
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
-            })
-        );
-
-        const estadoLleno = { 
-            items: [{ productoId: 1, nombre: 'Expreso Pocillo', precio: 6200, cantidad: 1 }], 
-            total: 6200 
-        };
-        
-        render(<Carrito estado={estadoLleno} />);
-        
-        const botonConfirmar = screen.getByRole('button', { name: /Confirmar Pedido/i });
-        await user.click(botonConfirmar);
-        
-        // 1. Exigimos que aparezca el texto del error
-        expect(await screen.findByText(/Sin stock de café/i)).toBeInTheDocument();
-        
-        // 2. Exigimos que el producto siga en la pantalla (no se vació el carrito)
-        expect(screen.getByText('Expreso Pocillo')).toBeInTheDocument();
-        
-        // 3. Exigimos que el botón vuelva a estar clickeable para reintentar
-        expect(botonConfirmar).toBeEnabled();
-
-        // Limpiamos el espía para no afectar otros tests
-        mockFetch.mockRestore();
-    });
-
-    it('Debe enviar el pedido a la API y mostrar el número de seguimiento al tener éxito', async () => {
-        const user = userEvent.setup();
-        
-        // 1. Escenario: El carrito tiene un producto listo para comprar
-        const estadoLleno = { 
-            items: [{ productoId: 1, nombre: 'Expreso Pocillo', precio: 6200, cantidad: 1 }], 
-            total: 6200 
-        };
-        
-        render(<Carrito estado={estadoLleno} />);
-        
-        // 2. Acción: El cliente hace click en "Confirmar Pedido"
-        const botonConfirmar = screen.getByRole('button', { name: /Confirmar Pedido/i });
-        await user.click(botonConfirmar);
-        
-        // 3. Validación: Exigimos que aparezca el número de orden que devuelve tu handlers.ts (id: 1)
-        const mensajeExito = await screen.findByText(/Pedido #1/i);
-        expect(mensajeExito).toBeInTheDocument();
-        
-        // Exigimos que el carrito clásico desaparezca de la pantalla para dejarle lugar al seguimiento
-        expect(botonConfirmar).not.toBeInTheDocument();
+    // Limpiamos los espías y el reloj después de CADA test para que no se contaminen entre sí
+    afterEach(() => {
+        vi.restoreAllMocks();
+        vi.useRealTimers();
     });
 
     it('Debe mostrar un mensaje de carrito vacío y tener el botón de confirmar deshabilitado', () => {
-        // Simulamos un estado exactamente igual al que nos devuelve el reducer al arrancar
-        const estadoVacio = { 
-            items: [], 
-            total: 0 
-        };
-        
-        // Le pasamos el estado vacío como propiedad (prop) temporalmente para testearlo aislado
+        const estadoVacio = { items: [], total: 0 };
         render(<Carrito estado={estadoVacio} />);
-        
-        // Exigimos que el componente avise que no hay productos
         expect(screen.getByText(/Tu pedido está vacío/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Confirmar Pedido/i })).toBeDisabled();
+    });
+
+    it('Debe enviar el pedido a la API y mostrar el número de seguimiento al tener éxito', async () => {
+        // Mockeamos la respuesta de forma directa sin usar 'new Response()'
+        vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ id: 1, estado: 'pendiente' })
+        } as any);
+
+        const estadoLleno = { 
+            items: [{ productoId: 1, nombre: 'Expreso Pocillo', precio: 6200, cantidad: 1 }], total: 6200 
+        };
+        render(<Carrito estado={estadoLleno} />);
         
-        // Exigimos que el botón de enviar a la cocina esté bloqueado
-        const botonConfirmar = screen.getByRole('button', { name: /Confirmar Pedido/i });
-        expect(botonConfirmar).toBeDisabled();
+        // Usamos fireEvent que es sincrónico y no se cuelga
+        fireEvent.click(screen.getByRole('button', { name: /Confirmar Pedido/i }));
+        
+        expect(await screen.findByText(/Pedido #1/i)).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Confirmar Pedido/i })).not.toBeInTheDocument();
+    });
+
+    it('Debe mostrar un mensaje de error y mantener los productos si la API rechaza el pedido', async () => {
+        vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+            ok: false,
+            json: async () => ({ error: 'Sin stock de café' })
+        } as any);
+
+        const estadoLleno = { 
+            items: [{ productoId: 1, nombre: 'Expreso Pocillo', precio: 6200, cantidad: 1 }], total: 6200 
+        };
+        render(<Carrito estado={estadoLleno} />);
+        
+        fireEvent.click(screen.getByRole('button', { name: /Confirmar Pedido/i }));
+        
+        expect(await screen.findByText(/Sin stock de café/i)).toBeInTheDocument();
+        expect(screen.getByText('Expreso Pocillo')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Confirmar Pedido/i })).toBeEnabled();
+    });
+
+    it('Debe consultar el estado periódicamente (polling) y actualizar la pantalla sola', async () => {
+        vi.useFakeTimers();
+        
+        vi.spyOn(global, 'fetch').mockImplementation(async (url, options) => {
+            if (options?.method === 'POST') {
+                return { ok: true, json: async () => ({ id: 1, estado: 'pendiente' }) } as any;
+            }
+            return { ok: true, json: async () => ({ id: 1, estado: 'entregado' }) } as any;
+        });
+
+        const estadoLleno = { 
+            items: [{ productoId: 1, nombre: 'Expreso Pocillo', precio: 6200, cantidad: 1 }], total: 6200 
+        };
+        render(<Carrito estado={estadoLleno} />);
+        
+        fireEvent.click(screen.getByRole('button', { name: /Confirmar Pedido/i }));
+        
+        // 1. Damos un pequeño empujón al reloj falso dentro de act() para que se resuelva el POST
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(1);
+        });
+        
+        // 2. Usamos getByText (sincrónico) porque sabemos que ya está renderizado
+        expect(screen.getByText(/Estado: pendiente/i)).toBeInTheDocument();
+        
+        // 3. Avanzamos el reloj 5 segundos dentro de act() para disparar el setInterval
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(5000);
+        });
+        
+        // 4. Verificamos la actualización
+        expect(screen.getByText(/Estado: entregado/i)).toBeInTheDocument();
     });
 });

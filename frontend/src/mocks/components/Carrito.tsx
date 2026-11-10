@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EstadoCarrito } from '../reducers/carritoReducer';
 import { formatearPrecio } from '../utils/precio';
 
@@ -11,11 +11,36 @@ const Carrito: React.FC<CarritoProps> = ({ estado }) => {
     
     const [cargando, setCargando] = useState(false);
     const [orden, setOrden] = useState<any>(null); 
-    const [errorMensaje, setErrorMensaje] = useState<string | null>(null); // Nuevo estado para errores
+    const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
+
+    // ==========================================
+    // NUEVA LÓGICA DE POLLING (SEGUIMIENTO)
+    // ==========================================
+    useEffect(() => {
+        // Si todavía no hay una orden creada, no prendemos el cronómetro
+        if (!orden?.id) return;
+
+        // Configuramos el polling para que consulte la API cada 5 segundos
+        const intervalo = setInterval(async () => {
+            try {
+                const respuesta = await fetch(`/api/pedidos/${orden.id}`);
+                if (respuesta.ok) {
+                    const data = await respuesta.json();
+                    // Actualizamos el estado con los nuevos datos que llegaron de la cocina
+                    setOrden((ordenAnterior: any) => ({ ...ordenAnterior, ...data }));
+                }
+            } catch (error) {
+                console.error("Error al consultar el seguimiento:", error);
+            }
+        }, 5000); // 5000 milisegundos = 5 segundos
+
+        // Función de limpieza: apagamos el cronómetro si el componente se destruye
+        return () => clearInterval(intervalo);
+    }, [orden?.id]); // Solo se vuelve a ejecutar si cambia el ID de la orden
 
     const confirmarPedido = async () => {
         setCargando(true);
-        setErrorMensaje(null); // Limpiamos errores anteriores al reintentar
+        setErrorMensaje(null);
         
         try {
             const itemsApi = estado.items.map(item => ({
@@ -33,7 +58,6 @@ const Carrito: React.FC<CarritoProps> = ({ estado }) => {
                 const data = await respuesta.json();
                 setOrden(data);
             } else {
-                // Si la API tira 4xx o 5xx, leemos el mensaje de tu handlers.ts
                 const errorData = await respuesta.json();
                 setErrorMensaje(errorData.error || 'Ocurrió un error al procesar el pedido.');
             }
@@ -45,15 +69,20 @@ const Carrito: React.FC<CarritoProps> = ({ estado }) => {
     };
 
     if (orden) {
+        // Agregamos un cambio de color para que sea más visual: Verde si está entregado, amarillo si está pendiente
+        const estadoColor = orden.estado === 'entregado' ? 'bg-success text-white' : 'bg-warning text-dark';
+
         return (
             <div className="card shadow-sm border-0 bg-light sticky-top" style={{ top: '20px' }}>
                 <div className="card-body p-4 text-center">
                     <div className="text-success mb-3" style={{ fontSize: '3rem' }}>✓</div>
                     <h4 className="card-title mb-2">¡Pedido Confirmado!</h4>
                     <h2 className="display-6 fw-bold mb-3">Pedido #{orden.id}</h2>
-                    <span className="badge bg-warning text-dark fs-6 mb-4 text-capitalize">
+                    
+                    <span className={`badge ${estadoColor} fs-6 mb-4 text-capitalize`}>
                         Estado: {orden.estado}
                     </span>
+                    
                     <p className="text-muted">
                         Tu pedido fue enviado a la cocina. Te avisaremos cuando esté listo.
                     </p>
@@ -67,7 +96,6 @@ const Carrito: React.FC<CarritoProps> = ({ estado }) => {
             <div className="card-body p-4">
                 <h4 className="card-title mb-4">🛒 Tu Pedido</h4>
 
-                {/* Si hay un error, mostramos el cartel rojo pero NO borramos el carrito */}
                 {errorMensaje && (
                     <div className="alert alert-danger mb-4 border-0">
                         <strong>Error:</strong> {errorMensaje}
